@@ -122,6 +122,15 @@ const cartItemCount = document.querySelector('.cart__prices-item')
 const cartTotal = document.querySelector('.cart__prices-total')
 const cartMessage = document.getElementById('cart-message')
 const checkoutForm = document.getElementById('checkout-form')
+const authModal = document.getElementById('auth-modal')
+const authMessage = document.getElementById('auth-message')
+const authForms = document.getElementById('auth-forms')
+const authSignedIn = document.getElementById('auth-signed-in')
+const authUserName = document.getElementById('auth-user-name')
+const accountLabel = document.getElementById('account-label')
+const authTitle = document.getElementById('auth-title')
+const authIntro = document.getElementById('auth-intro')
+let currentCustomer = null
 const useLocationButton = document.getElementById('use-location')
 const locationStatus = document.getElementById('location-status')
 let customerCoordinates = { latitude: null, longitude: null }
@@ -129,6 +138,88 @@ const addressCountry = document.getElementById('address-country')
 const addressRegion = document.getElementById('address-region')
 const addressCity = document.getElementById('address-city')
 const cartStorageKey = 'watch-store-cart'
+
+const setAuthState = user => {
+    currentCustomer = user
+    const signedIn = Boolean(user)
+    accountLabel.textContent = signedIn ? user.name.split(' ')[0] : 'Account'
+    authForms.hidden = signedIn
+    authSignedIn.hidden = !signedIn
+    authUserName.textContent = signedIn ? user.name : ''
+
+    const nameInput = checkoutForm.elements.namedItem('name')
+    const emailInput = checkoutForm.elements.namedItem('email')
+    if (signedIn) {
+        nameInput.value = user.name
+        emailInput.value = user.email
+    }
+}
+
+const openAuthModal = (forCheckout = false) => {
+    authTitle.textContent = forCheckout ? 'Sign in to order' : 'Your account'
+    authIntro.textContent = forCheckout
+        ? 'Please sign in or create an account before placing your order.'
+        : 'Browse freely. Sign in when you are ready to place an order.'
+    authModal.classList.add('is-visible')
+    authModal.setAttribute('aria-hidden', 'false')
+}
+
+const closeAuthModal = () => {
+    authModal.classList.remove('is-visible')
+    authModal.setAttribute('aria-hidden', 'true')
+    authMessage.textContent = ''
+}
+
+const submitAuth = (form, action) => {
+    const formData = new FormData(form)
+    authMessage.textContent = 'Please wait...'
+    fetch('api/auth.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action,
+            name: formData.get('name'),
+            email: formData.get('email'),
+            password: formData.get('password')
+        })
+    })
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) throw new Error(data.error || 'Authentication failed.')
+            setAuthState(data.user)
+            authMessage.textContent = 'You are signed in.'
+            form.reset()
+            setTimeout(closeAuthModal, 700)
+        })
+        .catch(error => { authMessage.textContent = error.message })
+}
+
+document.getElementById('account-button').addEventListener('click', () => openAuthModal())
+document.getElementById('auth-close').addEventListener('click', closeAuthModal)
+document.getElementById('auth-panel-close').addEventListener('click', closeAuthModal)
+document.getElementById('login-form').addEventListener('submit', event => {
+    event.preventDefault()
+    submitAuth(event.currentTarget, 'login')
+})
+document.getElementById('register-form').addEventListener('submit', event => {
+    event.preventDefault()
+    submitAuth(event.currentTarget, 'register')
+})
+document.getElementById('logout-button').addEventListener('click', () => {
+    fetch('api/auth.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' })
+    }).then(() => {
+        setAuthState(null)
+        closeAuthModal()
+    })
+})
+
+fetch('api/auth.php')
+    .then(response => response.json())
+    .then(data => setAuthState(data.user || null))
+    .catch(() => setAuthState(null))
 
 const fillSelect = (select, values, placeholder) => {
     select.innerHTML = `<option value="">${placeholder}</option>`
@@ -232,6 +323,62 @@ try {
 }
 
 const productKey = value => value.toLowerCase().replace(/\s+/g, ' ').trim()
+const usdToPhp = 58
+const formatPrice = value => new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP'
+}).format(Number(value) * usdToPhp)
+
+const advisorPanel = document.getElementById('advisor-panel')
+const advisorForm = document.getElementById('advisor-form')
+const advisorResults = document.getElementById('advisor-results')
+const advisorMessage = document.getElementById('advisor-message')
+
+const showAdvisor = visible => {
+    advisorPanel.classList.toggle('is-visible', visible)
+    advisorPanel.setAttribute('aria-hidden', String(!visible))
+}
+
+document.getElementById('advisor-open').addEventListener('click', () => showAdvisor(true))
+document.getElementById('advisor-close').addEventListener('click', () => showAdvisor(false))
+
+advisorForm.addEventListener('submit', event => {
+    event.preventDefault()
+    const values = Object.fromEntries(new FormData(advisorForm))
+    advisorMessage.textContent = 'Curating your matches...'
+    advisorResults.innerHTML = ''
+
+    fetch('api/recommend.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values)
+    })
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) throw new Error(data.error || 'Recommendations could not be loaded.')
+            advisorMessage.textContent = data.products.length
+                ? 'These pieces suit your brief.'
+                : 'No close matches found. Try a higher budget.'
+            advisorResults.innerHTML = data.products.map(product => `
+                <article class="advisor-result">
+                    <img src="${product.image}" alt="${product.name}">
+                    <div>
+                        <h3>${product.name}</h3>
+                        <strong>${formatPrice(product.price)}</strong>
+                        <p>${product.reason}</p>
+                        <button class="button button--small advisor-result__button" type="button" data-advisor-product="${product.id}">ADD TO CART</button>
+                    </div>
+                </article>`).join('')
+        })
+        .catch(error => { advisorMessage.textContent = error.message })
+})
+
+advisorResults.addEventListener('click', event => {
+    const button = event.target.closest('[data-advisor-product]')
+    if (!button) return
+    addToCart(Number(button.dataset.advisorProduct))
+    button.textContent = 'ADDED'
+})
 
 const saveCart = () => {
     localStorage.setItem(cartStorageKey, JSON.stringify(shoppingCart))
@@ -274,7 +421,7 @@ const renderCart = () => {
                 <div class="cart__box"><img src="${product.image}" alt="${product.name}" class="cart__img"></div>
                 <div class="cart__details">
                     <h3 class="cart__title">${product.name}</h3>
-                    <span class="cart__price">$${product.price.toFixed(2)}</span>
+                    <span class="cart__price">${formatPrice(product.price)}</span>
                     <div class="cart__amount">
                         <div class="cart__amount-content">
                             <button class="cart__amount-box" data-action="decrease" data-id="${product.id}" aria-label="Decrease quantity">-</button>
@@ -289,7 +436,7 @@ const renderCart = () => {
 
     if (!count) cartContainer.innerHTML = '<p>Your cart is empty.</p>'
     cartItemCount.textContent = `${count} item${count === 1 ? '' : 's'}`
-    cartTotal.textContent = `$${total.toFixed(2)}`
+    cartTotal.textContent = formatPrice(total)
 }
 
 cartContainer.addEventListener('click', event => {
@@ -337,6 +484,11 @@ checkoutForm.addEventListener('submit', event => {
     event.preventDefault()
     if (!shoppingCart.length) {
         cartMessage.textContent = 'Add a product before checking out.'
+        return
+    }
+    if (!currentCustomer) {
+        cartMessage.textContent = 'Sign in before placing your order.'
+        openAuthModal(true)
         return
     }
     const formData = new FormData(checkoutForm)
@@ -439,7 +591,7 @@ trackerForm.addEventListener('submit', event => {
             trackerResult.innerHTML = `
                 <strong>Order #${order.id}</strong>
                 <span>Status: ${order.status}</span>
-                <span>Total: $${order.total.toFixed(2)}</span>
+                <span>Total: ${formatPrice(order.total)}</span>
                 <span>Placed: ${date}</span>
                 ${renderTrackingTimeline(order.status)}`
             if (order.latitude === null || order.longitude === null) {

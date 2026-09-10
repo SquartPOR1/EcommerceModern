@@ -2,19 +2,27 @@
 
 require_once __DIR__ . '/db.php';
 
+session_start();
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonResponse(['error' => 'POST requests only.'], 405);
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
-$name = trim((string) ($input['name'] ?? ''));
-$email = trim((string) ($input['email'] ?? ''));
+$customer = $_SESSION['customer'] ?? null;
+$name = trim((string) ($customer['name'] ?? ''));
+$email = trim((string) ($customer['email'] ?? ''));
+$customerId = filter_var($customer['id'] ?? null, FILTER_VALIDATE_INT);
 $address = trim((string) ($input['address'] ?? ''));
 $latitude = filter_var($input['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
 $longitude = filter_var($input['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
 $items = $input['items'] ?? [];
 
-if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $address === '' || !is_array($items) || $items === []) {
+if (!$customerId || $name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $address === '' || !is_array($items) || $items === []) {
+    jsonResponse(['error' => 'Please log in before placing an order.'], 401);
+}
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $address === '' || !is_array($items) || $items === []) {
     jsonResponse(['error' => 'Name, valid email, address, and cart items are required.'], 422);
 }
 
@@ -73,9 +81,10 @@ try {
     }
 
     $createOrder = $connection->prepare(
-        'INSERT INTO orders (customer_name, email, address, customer_latitude, customer_longitude, total) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO orders (customer_id, customer_name, email, address, customer_latitude, customer_longitude, total) VALUES (?, ?, ?, ?, ?, ?, ?)'
     );
     $createOrder->execute([
+        $customerId,
         $name,
         $email,
         $address,
