@@ -21,6 +21,12 @@ function geocodeAddress(string $address): ?array
     return ['latitude' => (float) $results[0]['lat'], 'longitude' => (float) $results[0]['lon']];
 }
 
+function getCourierDetails(?string $courierId): ?array
+{
+    if (!$courierId) return null;
+    return courierRequest('GET', '/couriers/' . rawurlencode($courierId));
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     jsonResponse(['error' => 'GET requests only.'], 405);
 }
@@ -35,7 +41,7 @@ if (!$orderId || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 try {
     $connection = db();
     $query = $connection->prepare(
-        'SELECT id, address, total, status, created_at, customer_latitude, customer_longitude FROM orders WHERE id = ? AND email = ?'
+        'SELECT id, address, total, status, courier_id, created_at, customer_latitude, customer_longitude FROM orders WHERE id = ? AND email = ?'
     );
     $query->execute([$orderId, $email]);
     $order = $query->fetch();
@@ -61,6 +67,7 @@ try {
             'id' => (int) $order['id'],
             'total' => (float) $order['total'],
             'status' => $order['status'],
+            'courier' => getCourierDetails($order['courier_id']),
             'createdAt' => $order['created_at'],
             'latitude' => $order['customer_latitude'] === null ? null : (float) $order['customer_latitude'],
             'longitude' => $order['customer_longitude'] === null ? null : (float) $order['customer_longitude'],

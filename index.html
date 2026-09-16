@@ -66,6 +66,11 @@
                         <i class='bx bx-shopping-bag' ></i>
                     </div>
 
+                    <button class="nav__wishlist" id="wishlist-shop" type="button" aria-label="Open wishlist">
+                        <i class='bx bx-heart'></i>
+                        <span class="nav__wishlist-count" id="wishlist-count">0</span>
+                    </button>
+
                     <div class="nav__toggle" id="nav-toggle">
                         <i class='bx bx-grid-alt' ></i>
                     </div>
@@ -114,6 +119,19 @@
             </form>
         </div>
 
+        <aside class="wishlist" id="wishlist" aria-hidden="true">
+            <button class="wishlist__close" id="wishlist-close" type="button" aria-label="Close wishlist">
+                <i class='bx bx-x'></i>
+            </button>
+            <div class="cart__heading">
+                <span class="cart__eyebrow">Saved for later</span>
+                <h2 class="cart__title-center">My Wishlist</h2>
+            </div>
+            <div class="wishlist__container" id="wishlist-container">
+                <p>Your wishlist is empty.</p>
+            </div>
+        </aside>
+
         <div class="auth-modal" id="auth-modal" aria-hidden="true">
             <div class="auth-modal__backdrop" id="auth-close"></div>
             <section class="auth-modal__panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
@@ -148,6 +166,8 @@
             <i class='bx bx-sparkles'></i>
             <span>Find my watch</span>
         </button>
+
+        <div class="store-toast" id="store-toast" role="status" aria-live="polite"></div>
 
         <aside class="advisor-panel" id="advisor-panel" aria-hidden="true">
             <button class="advisor-panel__close" id="advisor-close" type="button" aria-label="Close watch advisor">
@@ -561,9 +581,9 @@
                     <h3 class="footer__title">Our information</h3>
 
                     <ul class="footer__list">
-                        <li>1234 - Peru</li>
-                        <li>La Libertad 43210</li>
-                        <li>123-456-789</li>
+                        <li>1234 - Manila, Philippines</li>
+                        <li>Ermita, Manila 1000</li>
+                        <li>+63 912 345 6789</li>
                     </ul>
                 </div>
                 <div class="footer__content">
@@ -623,7 +643,7 @@
                 </div>
             </div>
 
-            <span class="footer__copy">&#169; Bedimcode. All rigths reserved</span>
+            <span class="footer__copy">&#169; Ian Espiritu. All rights reserved</span>
         </footer>
 
         <!--=============== SCROLL UP ===============-->

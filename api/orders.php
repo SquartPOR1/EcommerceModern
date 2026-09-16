@@ -51,6 +51,15 @@ function geocodeAddress(string $address): ?array
     ];
 }
 
+function createCourierDelivery(string $address): ?string
+{
+    $data = courierRequest('POST', '/order', [
+        'from' => STORE_NAME,
+        'to' => $address,
+    ]);
+    return is_array($data) && !empty($data['id']) ? (string) $data['id'] : null;
+}
+
 try {
     $connection = db();
     $connection->beginTransaction();
@@ -104,7 +113,17 @@ try {
     }
 
     $connection->commit();
-    jsonResponse(['orderId' => $orderId, 'total' => round($total, 2), 'message' => 'Order created successfully.'], 201);
+    $courierId = createCourierDelivery($address);
+    if ($courierId) {
+        $saveCourier = $connection->prepare('UPDATE orders SET courier_id = ? WHERE id = ?');
+        $saveCourier->execute([$courierId, $orderId]);
+    }
+    jsonResponse([
+        'orderId' => $orderId,
+        'courierId' => $courierId,
+        'total' => round($total, 2),
+        'message' => 'Order created successfully.',
+    ], 201);
 } catch (Throwable $exception) {
     if (isset($connection) && $connection->inTransaction()) {
         $connection->rollBack();

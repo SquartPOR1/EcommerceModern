@@ -19,6 +19,20 @@ if(navClose){
 
 /*=============== REMOVE MOBILE MENU ===============*/
 const navLink = document.querySelectorAll('.nav__link')
+const revealItems = document.querySelectorAll('.featured__card, .products__card, .new__card, .section__title, .story__container, .newsletter__bg, .tracker__result')
+
+if ('IntersectionObserver' in window) {
+    const revealObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return
+            entry.target.classList.add('is-visible')
+            revealObserver.unobserve(entry.target)
+        })
+    }, { threshold: .12 })
+    revealItems.forEach(item => revealObserver.observe(item))
+} else {
+    revealItems.forEach(item => item.classList.add('is-visible'))
+}
 
 const linkAction = () =>{
    const navMenu = document.getElementById('nav-menu')
@@ -99,6 +113,21 @@ window.addEventListener('scroll', scrollActive)
 const cart = document.getElementById('cart'),
       cartShop = document.getElementById('cart-shop'),
       cartClose = document.getElementById('cart-close')
+const wishlist = document.getElementById('wishlist')
+const wishlistShop = document.getElementById('wishlist-shop')
+const wishlistClose = document.getElementById('wishlist-close')
+const wishlistContainer = document.getElementById('wishlist-container')
+const wishlistCount = document.getElementById('wishlist-count')
+const storeToast = document.getElementById('store-toast')
+let toastTimer
+
+const showToast = (message, isError = false) => {
+    clearTimeout(toastTimer)
+    storeToast.textContent = message
+    storeToast.classList.toggle('is-error', isError)
+    storeToast.classList.add('is-visible')
+    toastTimer = setTimeout(() => storeToast.classList.remove('is-visible'), 2600)
+}
 
 /*===== CART SHOW =====*/
 /* Validate if constant exists */
@@ -115,6 +144,14 @@ if(cartClose){
         cart.classList.remove('show-cart')
     })
 }
+
+const showWishlist = visible => {
+    wishlist.classList.toggle('show-wishlist', visible)
+    wishlist.setAttribute('aria-hidden', String(!visible))
+}
+
+if (wishlistShop) wishlistShop.addEventListener('click', () => showWishlist(true))
+if (wishlistClose) wishlistClose.addEventListener('click', () => showWishlist(false))
 
 /*=============== PRODUCTS AND CART ===============*/
 const cartContainer = document.querySelector('.cart__container')
@@ -138,6 +175,7 @@ const addressCountry = document.getElementById('address-country')
 const addressRegion = document.getElementById('address-region')
 const addressCity = document.getElementById('address-city')
 const cartStorageKey = 'watch-store-cart'
+const wishlistStorageKey = 'watch-store-wishlist'
 
 const setAuthState = user => {
     currentCustomer = user
@@ -314,12 +352,20 @@ const fallbackProducts = [
 ]
 let products = fallbackProducts
 let shoppingCart = []
+let wishlistItems = []
 
 try {
     const storedCart = JSON.parse(localStorage.getItem(cartStorageKey) || '[]')
     shoppingCart = Array.isArray(storedCart) ? storedCart : []
 } catch (error) {
     localStorage.removeItem(cartStorageKey)
+}
+
+try {
+    const storedWishlist = JSON.parse(localStorage.getItem(wishlistStorageKey) || '[]')
+    wishlistItems = Array.isArray(storedWishlist) ? storedWishlist : []
+} catch (error) {
+    localStorage.removeItem(wishlistStorageKey)
 }
 
 const productKey = value => value.toLowerCase().replace(/\s+/g, ' ').trim()
@@ -384,7 +430,57 @@ const saveCart = () => {
     localStorage.setItem(cartStorageKey, JSON.stringify(shoppingCart))
 }
 
+const saveWishlist = () => {
+    localStorage.setItem(wishlistStorageKey, JSON.stringify(wishlistItems))
+}
+
 const findProduct = id => products.find(product => product.id === id)
+
+const renderWishlist = () => {
+    wishlistContainer.innerHTML = ''
+    const savedProducts = wishlistItems.map(findProduct).filter(Boolean)
+    wishlistCount.textContent = savedProducts.length
+
+    if (!savedProducts.length) {
+        wishlistContainer.innerHTML = '<p>Your wishlist is empty.</p>'
+        return
+    }
+
+    savedProducts.forEach(product => wishlistContainer.insertAdjacentHTML('beforeend', `
+        <article class="wishlist__card">
+            <div class="wishlist__box"><img src="${product.image}" alt="${product.name}" class="wishlist__img"></div>
+            <div class="wishlist__details">
+                <h3 class="cart__title">${product.name}</h3>
+                <span class="cart__price">${formatPrice(product.price)}</span>
+                <div class="wishlist__actions">
+                    <button class="button button--small wishlist__cart-button" type="button" data-wishlist-cart="${product.id}">ADD TO CART</button>
+                    <button class="wishlist__remove" type="button" data-wishlist-remove="${product.id}" aria-label="Remove ${product.name} from wishlist"><i class='bx bx-trash'></i></button>
+                </div>
+            </div>
+        </article>`))
+}
+
+const toggleWishlist = id => {
+    wishlistItems = wishlistItems.includes(id)
+        ? wishlistItems.filter(itemId => itemId !== id)
+        : [...wishlistItems, id]
+    saveWishlist()
+    renderWishlist()
+    document.querySelectorAll(`[data-wishlist="${id}"]`).forEach(button => {
+        const saved = wishlistItems.includes(id)
+        button.classList.toggle('is-saved', saved)
+        button.setAttribute('aria-label', saved ? 'Remove from wishlist' : 'Save to wishlist')
+        button.innerHTML = `<i class='bx ${saved ? 'bxs-heart' : 'bx-heart'}'></i>`
+    })
+    if (wishlistItems.includes(id)) showToast('Saved to your wishlist.')
+}
+
+wishlistContainer.addEventListener('click', event => {
+    const cartButton = event.target.closest('[data-wishlist-cart]')
+    const removeButton = event.target.closest('[data-wishlist-remove]')
+    if (cartButton) addToCart(Number(cartButton.dataset.wishlistCart))
+    if (removeButton) toggleWishlist(Number(removeButton.dataset.wishlistRemove))
+})
 
 const addToCart = id => {
     const existing = shoppingCart.find(item => item.id === id)
@@ -395,6 +491,10 @@ const addToCart = id => {
     cart.classList.add('show-cart')
     cart.classList.remove('cart--pulse')
     requestAnimationFrame(() => cart.classList.add('cart--pulse'))
+    const cartIcon = document.getElementById('cart-shop')
+    cartIcon.classList.remove('is-popping')
+    requestAnimationFrame(() => cartIcon.classList.add('is-popping'))
+    showToast('Added to your cart.')
 }
 
 const changeQuantity = (id, amount) => {
@@ -449,6 +549,7 @@ cartContainer.addEventListener('click', event => {
         shoppingCart = shoppingCart.filter(item => item.id !== id)
         saveCart()
         renderCart()
+        showToast('Item removed from your cart.')
     }
 })
 
@@ -459,6 +560,19 @@ const connectProductButtons = () => {
         if (!title || !button) return
         const product = products.find(item => productKey(item.name) === productKey(title.textContent))
         if (!product) return
+        if (!card.querySelector('[data-wishlist]')) {
+            const wishlistButton = document.createElement('button')
+            wishlistButton.className = 'wishlist-toggle'
+            wishlistButton.dataset.wishlist = product.id
+            wishlistButton.type = 'button'
+            wishlistButton.setAttribute('aria-label', 'Save to wishlist')
+            card.append(wishlistButton)
+            wishlistButton.addEventListener('click', () => toggleWishlist(product.id))
+        }
+        const wishlistButton = card.querySelector('[data-wishlist]')
+        wishlistButton.classList.toggle('is-saved', wishlistItems.includes(product.id))
+        wishlistButton.setAttribute('aria-label', wishlistItems.includes(product.id) ? 'Remove from wishlist' : 'Save to wishlist')
+        wishlistButton.innerHTML = `<i class='bx ${wishlistItems.includes(product.id) ? 'bxs-heart' : 'bx-heart'}'></i>`
         if (button.dataset.cartConnected) return
         button.dataset.cartConnected = 'true'
         button.addEventListener('click', () => addToCart(product.id))
@@ -470,6 +584,7 @@ const connectProductButtons = () => {
 }
 
 connectProductButtons()
+renderWishlist()
 
 fetch('api/products.php')
     .then(response => response.json())
@@ -477,6 +592,8 @@ fetch('api/products.php')
         if (data.error) throw new Error(data.error)
         products = data.products
         renderCart()
+        renderWishlist()
+        connectProductButtons()
     })
     .catch(error => { cartMessage.textContent = error.message })
 
@@ -500,6 +617,10 @@ checkoutForm.addEventListener('submit', event => {
         formData.get('country')
     ].filter(Boolean).join(', ')
     cartMessage.textContent = 'Placing your order...'
+    const checkoutButton = checkoutForm.querySelector('.cart__submit')
+    checkoutButton.disabled = true
+    checkoutButton.classList.add('is-loading')
+    checkoutButton.textContent = 'PLACING ORDER...'
     fetch('api/orders.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -522,8 +643,23 @@ checkoutForm.addEventListener('submit', event => {
             customerCoordinates = { latitude: null, longitude: null }
             locationStatus.textContent = 'Location is optional. Allow GPS for the most accurate map.'
             cartMessage.textContent = `Order #${data.orderId} placed successfully.`
+            checkoutButton.classList.remove('is-loading')
+            checkoutButton.classList.add('is-success')
+            checkoutButton.textContent = 'ORDER PLACED'
+            showToast('Your order was placed successfully.')
+            setTimeout(() => {
+                checkoutButton.disabled = false
+                checkoutButton.classList.remove('is-success')
+                checkoutButton.textContent = 'PLACE ORDER'
+            }, 1800)
         })
-        .catch(error => { cartMessage.textContent = error.message })
+        .catch(error => {
+            cartMessage.textContent = error.message
+            checkoutButton.disabled = false
+            checkoutButton.classList.remove('is-loading')
+            checkoutButton.textContent = 'PLACE ORDER'
+            showToast(error.message, true)
+        })
 })
 
 /*=============== ORDER TRACKER ===============*/
@@ -531,39 +667,42 @@ const trackerForm = document.getElementById('tracker-form')
 const trackerResult = document.getElementById('tracker-result')
 const trackingMapElement = document.getElementById('tracking-map')
 let trackingMap
+let trackingRefresh
 
-const drawTrackingMap = (status, latitude, longitude) => {
+const drawTrackingMap = (latitude, longitude, courier) => {
     if (!trackingMapElement || typeof L === 'undefined' || latitude === null || longitude === null) return
     if (trackingMap) trackingMap.remove()
 
     trackingMapElement.classList.add('is-visible')
-    trackingMap = L.map(trackingMapElement).setView([20, 0], 2)
+    const position = courier?.position
+    const currentLocation = position && Number.isFinite(Number(position.lat)) && Number.isFinite(Number(position.lng))
+        ? [Number(position.lat), Number(position.lng)]
+        : null
+    const route = courier?.routeInfo?.waypoints?.flatMap(waypoint => waypoint.coordinates || [])
+        .filter(coordinate => Array.isArray(coordinate) && coordinate.length >= 2)
+        .map(coordinate => [coordinate[1], coordinate[0]]) || []
+    const destination = [latitude, longitude]
+    const mapPoints = [...route, ...(currentLocation ? [currentLocation] : []), destination]
+    trackingMap = L.map(trackingMapElement).setView(currentLocation || destination, currentLocation ? 14 : 13)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(trackingMap)
 
-    const route = [[-12.0464, -77.0428], [latitude, longitude]]
-    const progressByStatus = {
-        pending: 0,
-        paid: 0,
-        processing: 0,
-        shipped: 1,
-        cancelled: 0
+    if (route.length > 1) {
+        L.polyline(route, { color: '#b99052', weight: 5, opacity: .7 }).addTo(trackingMap)
     }
-    const progressIndex = progressByStatus[status] ?? 0
-    const activeRoute = route.slice(0, progressIndex + 1)
-
-    L.polyline(route, { color: '#c88745', weight: 4, dashArray: '8 8' }).addTo(trackingMap)
-    L.polyline(activeRoute, { color: '#222', weight: 5 }).addTo(trackingMap)
-    L.marker(route[0]).addTo(trackingMap).bindPopup('Store warehouse')
-    L.marker(route[1]).addTo(trackingMap).bindPopup('Customer delivery address')
-    trackingMap.fitBounds(route, { padding: [24, 24] })
+    if (currentLocation) {
+        L.marker(currentLocation).addTo(trackingMap).bindPopup(`Courier: ${courier.name || 'Assigned courier'}`).openPopup()
+    }
+    L.marker(destination).addTo(trackingMap).bindPopup('Delivery destination')
+    if (mapPoints.length > 1) trackingMap.fitBounds(mapPoints, { padding: [24, 24] })
 }
 
 const renderTrackingTimeline = status => {
     const statuses = ['pending', 'processing', 'shipped', 'delivered']
     const labels = ['Order placed', 'Preparing order', 'On the way', 'Delivered']
-    const currentIndex = status === 'cancelled' ? -1 : Math.max(statuses.indexOf(status), 0)
+    const currentStatus = status === 'paid' ? 'processing' : status
+    const currentIndex = currentStatus === 'cancelled' ? -1 : Math.max(statuses.indexOf(currentStatus), 0)
     return `<div class="tracker__timeline ${status === 'cancelled' ? 'is-cancelled' : ''}">
         ${statuses.map((item, index) => `
             <div class="tracker__step ${index <= currentIndex ? 'is-complete' : ''} ${index === currentIndex ? 'is-current' : ''}">
@@ -573,15 +712,7 @@ const renderTrackingTimeline = status => {
     </div>`
 }
 
-trackerForm.addEventListener('submit', event => {
-    event.preventDefault()
-    const formData = new FormData(trackerForm)
-    const query = new URLSearchParams({
-        order: formData.get('order'),
-        email: formData.get('email')
-    })
-    trackerResult.textContent = 'Loading order status...'
-
+const loadTrackingOrder = query => {
     fetch(`api/track-order.php?${query}`)
         .then(response => response.json().then(data => ({ ok: response.ok, data })))
         .then(({ ok, data }) => {
@@ -593,13 +724,32 @@ trackerForm.addEventListener('submit', event => {
                 <span>Status: ${order.status}</span>
                 <span>Total: ${formatPrice(order.total)}</span>
                 <span>Placed: ${date}</span>
+                ${order.courier ? `<span>Courier: ${order.courier.name} (${order.courier.status})</span>
+                <span>Progress: ${order.courier.position.progress}% · ETA: ${order.courier.position.timeLeft}</span>` : ''}
                 ${renderTrackingTimeline(order.status)}`
             if (order.latitude === null || order.longitude === null) {
                 trackerResult.insertAdjacentHTML('beforeend', '<span>Map location is unavailable for this address.</span>')
+            } else {
+                trackerResult.insertAdjacentHTML('beforeend', order.courier
+                    ? '<span class="tracker__map-note">Courier position is simulated from the active street route.</span>'
+                    : '<span class="tracker__map-note">Map shows the confirmed delivery destination. Courier simulation is offline.</span>')
             }
-            drawTrackingMap(order.status, order.latitude, order.longitude)
+            drawTrackingMap(order.latitude, order.longitude, order.courier)
         })
         .catch(error => { trackerResult.textContent = error.message })
+}
+
+trackerForm.addEventListener('submit', event => {
+    event.preventDefault()
+    if (trackingRefresh) clearInterval(trackingRefresh)
+    const formData = new FormData(trackerForm)
+    const query = new URLSearchParams({
+        order: formData.get('order'),
+        email: formData.get('email')
+    })
+    trackerResult.textContent = 'Loading order status...'
+    loadTrackingOrder(query)
+    trackingRefresh = setInterval(() => loadTrackingOrder(query), 10000)
 })
 
 /*=============== DARK LIGHT THEME ===============*/ 

@@ -17,6 +17,9 @@
   --container-color: #fcfbf8;
   --border-color: #ded8cc;
   --shadow-soft: 0 20px 50px rgba(34, 30, 23, .08);
+  --motion-fast: 180ms;
+  --motion-base: 280ms;
+  --motion-slow: 420ms;
 
   /*========== Font and typography ==========*/
   --body-font: 'Manrope', sans-serif;
@@ -84,7 +87,8 @@ body {
   background-image: radial-gradient(circle at top, rgba(199, 154, 95, .09), transparent 35%), linear-gradient(90deg, rgba(199, 154, 95, .03) 1px, transparent 1px), linear-gradient(rgba(199, 154, 95, .03) 1px, transparent 1px);
   background-size: auto, 42px 42px, 42px 42px;
   /*For animation dark mode*/
-  transition: .4s;
+  transition: background-color .4s, color .4s;
+  animation: page-enter var(--motion-slow) ease both;
 }
 
 h1, h2, h3, h4 {
@@ -273,6 +277,30 @@ body.dark-theme {
   cursor: pointer;
 }
 
+.nav__wishlist {
+  position: relative;
+  display: inline-flex;
+  color: var(--title-color);
+  background: transparent;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.nav__wishlist-count {
+  position: absolute;
+  top: -.55rem;
+  right: -.65rem;
+  min-width: 1rem;
+  padding: .1rem .25rem;
+  border-radius: 1rem;
+  background: var(--first-color);
+  color: #fff;
+  font-size: .6rem;
+  line-height: 1;
+}
+
+.nav__wishlist:hover { color: var(--first-color); }
+
 @media screen and (max-width: 767px) {
   .nav__menu {
     position: fixed;
@@ -460,7 +488,7 @@ body.dark-theme {
   font-weight: var(--font-medium);
   text-transform: none;
   font-size: var(--small-font-size);
-  transition: .3s;
+  transition: color var(--motion-fast) ease, transform var(--motion-fast) ease;
   letter-spacing: .08em;
   position: relative;
 }
@@ -608,6 +636,8 @@ body.dark-theme {
   border-radius: 0;
   border: 1px solid rgba(23,19,16,.1);
 }
+
+.button:active { transform: translateY(0) scale(.98); }
 
 .button:hover {
   background-color: var(--button-color-alt);
@@ -1336,6 +1366,11 @@ body.dark-theme {
   color: var(--title-color);
 }
 
+.tracker__map-note {
+  color: var(--text-color-light);
+  font-size: var(--small-font-size);
+}
+
 .tracker__timeline {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1424,6 +1459,100 @@ body.dark-theme {
   right: 0;
 }
 
+.wishlist {
+  position: fixed;
+  background-color: var(--body-color);
+  z-index: var(--z-fixed);
+  width: min(100%, 440px);
+  height: 100%;
+  top: 0;
+  right: -100%;
+  padding: 3.5rem 2rem;
+  overflow-y: auto;
+  box-shadow: -18px 0 50px rgba(29, 27, 24, .12);
+  transition: .4s;
+}
+
+.show-wishlist { right: 0; }
+
+.wishlist__close {
+  position: absolute;
+  top: 1.25rem;
+  right: .9rem;
+  background: transparent;
+  color: var(--title-color);
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+.wishlist__container { display: grid; row-gap: 1.5rem; }
+.wishlist__card { display: flex; align-items: center; gap: 1rem; }
+.wishlist__box { padding: .65rem 1rem; background: var(--container-color); border: 1px solid var(--border-color); }
+.wishlist__img { width: 58px; height: 70px; object-fit: contain; }
+.wishlist__details { flex: 1; }
+.wishlist__actions { display: flex; align-items: center; gap: .75rem; }
+.wishlist__cart-button { padding: .55rem .7rem; font-size: .68rem; }
+.wishlist__remove { background: transparent; color: var(--first-color); font-size: 1.2rem; cursor: pointer; }
+
+.wishlist-toggle {
+  position: absolute;
+  top: .85rem;
+  right: .85rem;
+  z-index: 1;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--container-color);
+  color: var(--title-color);
+  font-size: 1.15rem;
+}
+
+.wishlist-toggle:hover,
+.wishlist-toggle.is-saved { color: #b44d4d; }
+
+.wishlist-toggle.is-saved i { animation: heart-pop var(--motion-base) ease both; }
+
+.store-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  z-index: calc(var(--z-fixed) + 3);
+  max-width: min(90vw, 360px);
+  padding: .8rem 1rem;
+  background: var(--button-color);
+  color: #fff;
+  box-shadow: 0 14px 30px rgba(29, 27, 24, .2);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 1rem);
+  transition: opacity var(--motion-base) ease, transform var(--motion-base) ease;
+}
+
+.store-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.store-toast.is-error { background: #8f4545; }
+.nav__wishlist.is-popping { animation: cart-pulse var(--motion-base) ease; }
+.cart__amount-number, .cart__prices-total { animation: value-pop var(--motion-fast) ease both; }
+
+.cart__submit.is-loading { opacity: .72; cursor: wait; }
+.cart__submit.is-success { background: #66845d; }
+
+@keyframes page-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes image-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes heart-pop { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@keyframes value-pop { 0% { transform: scale(1); } 50% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
 .nav__account {
   display: inline-flex;
   align-items: center;
@@ -1485,6 +1614,33 @@ body.dark-theme {
 .new__card {
   border-radius: 0;
   box-shadow: 0 14px 34px rgba(34, 30, 23, .055);
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity var(--motion-slow) ease, transform var(--motion-base) ease, box-shadow var(--motion-base) ease, border-color var(--motion-base) ease;
+}
+
+.featured__card.is-visible,
+.products__card.is-visible,
+.new__card.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.section__title,
+.story__container,
+.newsletter__bg,
+.tracker__result {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease;
+}
+
+.section__title.is-visible,
+.story__container.is-visible,
+.newsletter__bg.is-visible,
+.tracker__result.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .featured__card:hover,
@@ -1499,6 +1655,8 @@ body.dark-theme {
 .new__img {
   object-fit: contain;
   transition: transform .45s ease, filter .45s ease;
+  opacity: 0;
+  animation: image-enter var(--motion-slow) ease .08s forwards;
 }
 
 .featured__card:hover .featured__img,

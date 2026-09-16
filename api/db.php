@@ -21,6 +21,13 @@ function db(): PDO
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]
         );
+        $columnCheck = $connection->prepare(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?'
+        );
+        $columnCheck->execute([DB_NAME, 'orders', 'courier_id']);
+        if (!(int) $columnCheck->fetchColumn()) {
+            $connection->exec('ALTER TABLE orders ADD COLUMN courier_id VARCHAR(64) NULL AFTER status');
+        }
     } catch (PDOException $exception) {
         jsonResponse(['error' => 'Database connection failed. Import database.sql and check api/config.php.'], 500);
     }
