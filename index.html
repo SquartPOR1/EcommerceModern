@@ -83,7 +83,7 @@
             <i class='bx bx-x cart__close' id="cart-close"></i>
 
             <div class="cart__heading">
-                <span class="cart__eyebrow">Your selection</span>
+                <span class="cart__eyebrow">Saved automatically</span>
                 <h2 class="cart__title-center">My Cart</h2>
             </div>
 
@@ -156,9 +156,64 @@
                 </div>
                 <div class="auth-modal__signed-in" id="auth-signed-in" hidden>
                     <p>Signed in as <strong id="auth-user-name"></strong>.</p>
+                    <button class="button" id="purchases-button" type="button">MY PURCHASES</button>
                     <button class="button button--gray" id="logout-button" type="button">SIGN OUT</button>
                 </div>
                 <p class="auth-modal__message" id="auth-message" role="status"></p>
+            </section>
+        </div>
+
+        <aside class="purchases" id="purchases" aria-hidden="true">
+            <button class="purchases__close" id="purchases-close" type="button" aria-label="Close my purchases">
+                <i class='bx bx-x'></i>
+            </button>
+            <div class="cart__heading">
+                <span class="cart__eyebrow">Your account</span>
+                <h2 class="cart__title-center">My Purchases</h2>
+            </div>
+            <div class="purchases__tabs" id="purchases-tabs" role="tablist" aria-label="Purchase status">
+                <button class="purchases__tab is-active" type="button" data-purchase-tab="all">All</button>
+                <button class="purchases__tab" type="button" data-purchase-tab="to-pay">To Pay</button>
+                <button class="purchases__tab" type="button" data-purchase-tab="to-ship">To Ship</button>
+                <button class="purchases__tab" type="button" data-purchase-tab="to-receive">To Receive</button>
+                <button class="purchases__tab" type="button" data-purchase-tab="completed">Completed</button>
+                <button class="purchases__tab" type="button" data-purchase-tab="return-refund">Return/Refund</button>
+                <button class="purchases__tab" type="button" data-purchase-tab="cancelled">Cancelled</button>
+            </div>
+            <p class="purchases__message" id="purchases-message" role="status"></p>
+            <div class="purchases__orders" id="purchases-orders"></div>
+            <div class="purchases__tracker" id="purchases-tracker" hidden>
+                <button class="purchases__back" id="purchases-back" type="button"><i class='bx bx-arrow-back'></i> All purchases</button>
+                <div class="purchases__selected" id="purchases-selected"></div>
+                <div class="tracker__result" id="purchase-tracker-result" role="status"></div>
+                <div class="tracker__map" id="purchase-tracking-map" aria-label="Shipment route map"></div>
+            </div>
+        </aside>
+
+        <div class="cancel-modal" id="cancel-modal" aria-hidden="true">
+            <div class="cancel-modal__backdrop" id="cancel-close"></div>
+            <section class="cancel-modal__panel" role="dialog" aria-modal="true" aria-labelledby="cancel-title">
+                <button class="auth-modal__close" id="cancel-panel-close" type="button" aria-label="Close cancellation dialog"><i class='bx bx-x'></i></button>
+                <span class="cart__eyebrow">Order cancellation</span>
+                <h2 id="cancel-title">Why are you cancelling?</h2>
+                <p class="cancel-modal__intro">Your feedback helps us improve. This order can still be cancelled before it ships.</p>
+                <form id="cancel-form">
+                    <label>Reason
+                        <select name="reason" required>
+                            <option value="">Choose a reason</option>
+                            <option>Changed my mind</option>
+                            <option>Found a better price</option>
+                            <option>Ordered by mistake</option>
+                            <option>Delivery time is too long</option>
+                            <option>Other</option>
+                        </select>
+                    </label>
+                    <label id="cancel-note-label" hidden>Tell us more
+                        <textarea name="note" rows="3" maxlength="180" placeholder="Please share a short explanation"></textarea>
+                    </label>
+                    <button class="button cancel-modal__submit" type="submit">CONFIRM CANCELLATION</button>
+                </form>
+                <p class="cancel-modal__message" id="cancel-message" role="status"></p>
             </section>
         </div>
 
@@ -543,13 +598,8 @@
             <!--==================== ORDER TRACKER ====================-->
             <section class="tracker section container" id="tracker">
                 <h2 class="section__title">Track Your Order</h2>
-                <form class="tracker__form" id="tracker-form">
-                    <input type="number" name="order" min="1" placeholder="Order number" required>
-                    <input type="email" name="email" placeholder="Order email" required>
-                    <button class="button" type="submit">TRACK ORDER</button>
-                </form>
-                <div class="tracker__result" id="tracker-result" role="status"></div>
-                <div class="tracker__map" id="tracking-map" aria-label="Shipment route map"></div>
+                <p class="tracker__intro">Your live order tracking is available inside My Purchases.</p>
+                <button class="button tracker__open-purchases" id="tracker-open-purchases" type="button">OPEN MY PURCHASES</button>
             </section>
 
             <!--==================== NEWSLETTER ====================-->

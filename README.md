@@ -22,6 +22,8 @@ cd EcommerceModern
 
 Import database.sql into MySQL, configure the database connection in api/, then run the project using XAMPP or PHP's built-in server.
 
+Always open the StoreFront through `http://localhost/responsive-watches-website-main/`, not by double-clicking `index.html`. The automatic redirect handles direct file launches, but Apache and MySQL must be running for login, purchases, checkout, and tracking.
+
 Courier simulation
 
 This project can optionally connect to https://github.com/fudaylcavus/courier-simulation-api for simulated street-level courier tracking.

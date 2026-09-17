@@ -1,3 +1,7 @@
+if (window.location.protocol === 'file:') {
+    window.location.replace(`http://localhost/responsive-watches-website-main/index.html${window.location.hash}`)
+}
+
 /*=============== SHOW & CLOSE MENU ===============*/
 const navMenu = document.getElementById('nav-menu'),
       navToggle = document.getElementById('nav-toggle'),
@@ -167,6 +171,22 @@ const authUserName = document.getElementById('auth-user-name')
 const accountLabel = document.getElementById('account-label')
 const authTitle = document.getElementById('auth-title')
 const authIntro = document.getElementById('auth-intro')
+const purchases = document.getElementById('purchases')
+const purchasesMessage = document.getElementById('purchases-message')
+const purchasesOrders = document.getElementById('purchases-orders')
+const purchasesTracker = document.getElementById('purchases-tracker')
+const purchasesSelected = document.getElementById('purchases-selected')
+const purchaseTrackerResult = document.getElementById('purchase-tracker-result')
+const purchaseTrackingMap = document.getElementById('purchase-tracking-map')
+let customerPurchases = []
+let selectedPurchaseTab = 'all'
+let purchaseTrackingRefresh
+let purchaseTrackingMapInstance
+let orderBeingCancelled = null
+const cancelModal = document.getElementById('cancel-modal')
+const cancelForm = document.getElementById('cancel-form')
+const cancelMessage = document.getElementById('cancel-message')
+const cancelNoteLabel = document.getElementById('cancel-note-label')
 let currentCustomer = null
 const useLocationButton = document.getElementById('use-location')
 const locationStatus = document.getElementById('location-status')
@@ -190,6 +210,10 @@ const setAuthState = user => {
     if (signedIn) {
         nameInput.value = user.name
         emailInput.value = user.email
+        renderCart()
+    } else {
+        if (purchaseTrackingRefresh) clearInterval(purchaseTrackingRefresh)
+        showPurchases(false)
     }
 }
 
@@ -206,6 +230,76 @@ const closeAuthModal = () => {
     authModal.classList.remove('is-visible')
     authModal.setAttribute('aria-hidden', 'true')
     authMessage.textContent = ''
+}
+
+const showPurchases = visible => {
+    purchases.classList.toggle('show-purchases', visible)
+    purchases.setAttribute('aria-hidden', String(!visible))
+    if (visible) loadPurchases()
+}
+
+const getPurchaseCategory = order => {
+    if (order.status === 'cancelled') return 'cancelled'
+    if (order.status === 'delivered') return 'completed'
+    if (order.status === 'pending') return 'to-pay'
+    if (order.status === 'shipped' || order.hasCourier) return 'to-receive'
+    return 'to-ship'
+}
+
+const purchaseCategoryLabel = category => ({
+    'to-pay': 'To Pay',
+    'to-ship': 'To Ship',
+    'to-receive': 'To Receive',
+    completed: 'Completed',
+    'return-refund': 'Return/Refund',
+    cancelled: 'Cancelled'
+}[category] || 'All')
+
+const renderPurchases = () => {
+    const filtered = selectedPurchaseTab === 'all'
+        ? customerPurchases
+        : customerPurchases.filter(order => getPurchaseCategory(order) === selectedPurchaseTab)
+    purchasesOrders.innerHTML = ''
+    if (!filtered.length) {
+        purchasesOrders.innerHTML = '<div class="purchases__empty"><i class="bx bx-package"></i><strong>No purchases here yet</strong><span>Your orders will appear in this tab after checkout.</span></div>'
+        return
+    }
+    filtered.forEach(order => {
+        const category = getPurchaseCategory(order)
+        const items = order.items.map(item => {
+            const product = findProduct(item.productId)
+            return `<div class="purchase__item"><img src="${product?.image || 'assets/img/home.png'}" alt="${item.name}"><span>${item.name}</span><small>x${item.quantity}</small><strong>${formatPrice(item.price)}</strong></div>`
+        }).join('')
+        const canCancel = ['pending', 'paid', 'processing'].includes(order.status)
+        purchasesOrders.insertAdjacentHTML('beforeend', `<article class="purchase__order" data-purchase-order="${order.id}">
+            <div class="purchase__order-head"><strong>Order #${order.id}</strong><span>${purchaseCategoryLabel(category)}</span></div>
+            <div class="purchase__items">${items}</div>
+            <div class="purchase__order-foot"><small>${new Date(order.createdAt).toLocaleDateString()} · ${order.items.reduce((sum, item) => sum + item.quantity, 0)} item(s)</small><strong>Total ${formatPrice(order.total)}</strong></div>
+            ${canCancel ? `<button class="purchase__cancel" type="button" data-cancel-order="${order.id}">CANCEL ORDER</button>` : ''}
+        </article>`)
+    })
+}
+
+const loadPurchases = () => {
+    purchasesMessage.textContent = 'Loading your purchases...'
+    fetch('api/purchases.php')
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) throw new Error(data.error || 'Purchases could not be loaded.')
+            customerPurchases = data.orders || []
+            purchasesMessage.textContent = customerPurchases.length ? '' : 'Your purchase history is empty.'
+            renderPurchases()
+        })
+        .catch(error => {
+            customerPurchases = []
+            purchasesMessage.textContent = error.message
+            purchasesOrders.innerHTML = ''
+            if (error.message === 'Sign in to view your purchases.') {
+                setAuthState(null)
+                showPurchases(false)
+                openAuthModal(true)
+            }
+        })
 }
 
 const submitAuth = (form, action) => {
@@ -235,6 +329,86 @@ const submitAuth = (form, action) => {
 document.getElementById('account-button').addEventListener('click', () => openAuthModal())
 document.getElementById('auth-close').addEventListener('click', closeAuthModal)
 document.getElementById('auth-panel-close').addEventListener('click', closeAuthModal)
+document.getElementById('purchases-button').addEventListener('click', () => {
+    if (!currentCustomer) {
+        closeAuthModal()
+        openAuthModal(true)
+        return
+    }
+    closeAuthModal()
+    showPurchases(true)
+})
+document.getElementById('tracker-open-purchases').addEventListener('click', () => {
+    if (currentCustomer) showPurchases(true)
+    else openAuthModal(true)
+})
+document.getElementById('purchases-close').addEventListener('click', () => showPurchases(false))
+document.getElementById('purchases-back').addEventListener('click', () => {
+    if (purchaseTrackingRefresh) clearInterval(purchaseTrackingRefresh)
+    purchasesTracker.hidden = true
+    purchasesOrders.hidden = false
+})
+document.querySelectorAll('[data-purchase-tab]').forEach(tab => tab.addEventListener('click', () => {
+    selectedPurchaseTab = tab.dataset.purchaseTab
+    document.querySelectorAll('[data-purchase-tab]').forEach(item => item.classList.toggle('is-active', item === tab))
+    purchasesTracker.hidden = true
+    purchasesOrders.hidden = false
+    renderPurchases()
+}))
+document.getElementById('purchases-orders').addEventListener('click', event => {
+    const cancelButton = event.target.closest('[data-cancel-order]')
+    if (cancelButton) {
+        event.stopPropagation()
+        orderBeingCancelled = customerPurchases.find(item => item.id === Number(cancelButton.dataset.cancelOrder))
+        cancelMessage.textContent = ''
+        cancelForm.reset()
+        cancelNoteLabel.hidden = true
+        cancelModal.classList.add('is-visible')
+        cancelModal.setAttribute('aria-hidden', 'false')
+        return
+    }
+    const orderCard = event.target.closest('[data-purchase-order]')
+    if (!orderCard) return
+    const order = customerPurchases.find(item => item.id === Number(orderCard.dataset.purchaseOrder))
+    if (order) openPurchaseTracker(order)
+})
+const closeCancelModal = () => {
+    cancelModal.classList.remove('is-visible')
+    cancelModal.setAttribute('aria-hidden', 'true')
+    orderBeingCancelled = null
+}
+document.getElementById('cancel-close').addEventListener('click', closeCancelModal)
+document.getElementById('cancel-panel-close').addEventListener('click', closeCancelModal)
+cancelForm.elements.reason.addEventListener('change', event => {
+    cancelNoteLabel.hidden = event.target.value !== 'Other'
+    cancelForm.elements.note.required = event.target.value === 'Other'
+})
+cancelForm.addEventListener('submit', event => {
+    event.preventDefault()
+    if (!orderBeingCancelled) return
+    const formData = new FormData(cancelForm)
+    const submitButton = cancelForm.querySelector('button[type="submit"]')
+    submitButton.disabled = true
+    cancelMessage.textContent = 'Cancelling order...'
+    fetch('api/cancel-order.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            orderId: orderBeingCancelled.id,
+            reason: formData.get('reason'),
+            note: formData.get('note')
+        })
+    })
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) throw new Error(data.error || 'Order could not be cancelled.')
+            closeCancelModal()
+            showToast('Order cancelled successfully.')
+            loadPurchases()
+        })
+        .catch(error => { cancelMessage.textContent = error.message })
+        .finally(() => { submitButton.disabled = false })
+})
 document.getElementById('login-form').addEventListener('submit', event => {
     event.preventDefault()
     submitAuth(event.currentTarget, 'login')
@@ -244,6 +418,7 @@ document.getElementById('register-form').addEventListener('submit', event => {
     submitAuth(event.currentTarget, 'register')
 })
 document.getElementById('logout-button').addEventListener('click', () => {
+    saveCart()
     fetch('api/auth.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -666,14 +841,15 @@ checkoutForm.addEventListener('submit', event => {
 const trackerForm = document.getElementById('tracker-form')
 const trackerResult = document.getElementById('tracker-result')
 const trackingMapElement = document.getElementById('tracking-map')
+const trackerLiveStatus = document.getElementById('tracker-live-status')
 let trackingMap
 let trackingRefresh
 
-const drawTrackingMap = (latitude, longitude, courier) => {
-    if (!trackingMapElement || typeof L === 'undefined' || latitude === null || longitude === null) return
-    if (trackingMap) trackingMap.remove()
+const drawTrackingMap = (latitude, longitude, courier, targetElement = trackingMapElement, existingMap = trackingMap) => {
+    if (!targetElement || typeof L === 'undefined' || latitude === null || longitude === null) return existingMap
+    if (existingMap) existingMap.remove()
 
-    trackingMapElement.classList.add('is-visible')
+    targetElement.classList.add('is-visible')
     const position = courier?.position
     const currentLocation = position && Number.isFinite(Number(position.lat)) && Number.isFinite(Number(position.lng))
         ? [Number(position.lat), Number(position.lng)]
@@ -683,20 +859,40 @@ const drawTrackingMap = (latitude, longitude, courier) => {
         .map(coordinate => [coordinate[1], coordinate[0]]) || []
     const destination = [latitude, longitude]
     const mapPoints = [...route, ...(currentLocation ? [currentLocation] : []), destination]
-    trackingMap = L.map(trackingMapElement).setView(currentLocation || destination, currentLocation ? 14 : 13)
+    const map = L.map(targetElement).setView(currentLocation || destination, currentLocation ? 14 : 13)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(trackingMap)
+    }).addTo(map)
 
     if (route.length > 1) {
-        L.polyline(route, { color: '#b99052', weight: 5, opacity: .7 }).addTo(trackingMap)
+        L.polyline(route, { color: '#b99052', weight: 5, opacity: .7 }).addTo(map)
     }
     if (currentLocation) {
-        L.marker(currentLocation).addTo(trackingMap).bindPopup(`Courier: ${courier.name || 'Assigned courier'}`).openPopup()
+        L.marker(currentLocation).addTo(map).bindPopup(`Courier: ${courier.name || 'Assigned courier'}`).openPopup()
     }
-    L.marker(destination).addTo(trackingMap).bindPopup('Delivery destination')
-    if (mapPoints.length > 1) trackingMap.fitBounds(mapPoints, { padding: [24, 24] })
+    L.marker(destination).addTo(map).bindPopup('Delivery destination')
+    if (mapPoints.length > 1) map.fitBounds(mapPoints, { padding: [24, 24] })
+    return map
 }
+
+const getTrackingStatus = (orderStatus, courier) => {
+    if (orderStatus === 'cancelled' || orderStatus === 'delivered') return orderStatus
+    if (!courier) return orderStatus === 'paid' ? 'processing' : orderStatus
+
+    const progress = Number(courier.position?.progress || 0)
+    if (courier.status === 'completed' || progress >= 100) return 'delivered'
+    if (courier.status === 'in_progress' && progress > 0) return 'shipped'
+    return 'processing'
+}
+
+const getTrackingStatusLabel = status => ({
+    pending: 'Order placed',
+    paid: 'Order placed',
+    processing: 'Preparing order',
+    shipped: 'On the way',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled'
+}[status] || 'Order placed')
 
 const renderTrackingTimeline = status => {
     const statuses = ['pending', 'processing', 'shipped', 'delivered']
@@ -719,14 +915,20 @@ const loadTrackingOrder = query => {
             if (!ok) throw new Error(data.error || 'Order status could not be loaded.')
             const order = data.order
             const date = new Date(order.createdAt).toLocaleDateString()
+            const trackingStatus = getTrackingStatus(order.status, order.courier)
+            trackerLiveStatus.classList.toggle('is-active', Boolean(order.courier))
+            trackerLiveStatus.classList.toggle('is-offline', !order.courier)
+            trackerLiveStatus.lastChild.textContent = order.courier
+                ? `Live courier connected · ${order.courier.position.progress}% complete`
+                : 'Courier simulation unavailable · destination tracking only'
             trackerResult.innerHTML = `
                 <strong>Order #${order.id}</strong>
-                <span>Status: ${order.status}</span>
+                <span>Status: ${getTrackingStatusLabel(trackingStatus)}</span>
                 <span>Total: ${formatPrice(order.total)}</span>
                 <span>Placed: ${date}</span>
                 ${order.courier ? `<span>Courier: ${order.courier.name} (${order.courier.status})</span>
                 <span>Progress: ${order.courier.position.progress}% · ETA: ${order.courier.position.timeLeft}</span>` : ''}
-                ${renderTrackingTimeline(order.status)}`
+                ${renderTrackingTimeline(trackingStatus)}`
             if (order.latitude === null || order.longitude === null) {
                 trackerResult.insertAdjacentHTML('beforeend', '<span>Map location is unavailable for this address.</span>')
             } else {
@@ -734,12 +936,17 @@ const loadTrackingOrder = query => {
                     ? '<span class="tracker__map-note">Courier position is simulated from the active street route.</span>'
                     : '<span class="tracker__map-note">Map shows the confirmed delivery destination. Courier simulation is offline.</span>')
             }
-            drawTrackingMap(order.latitude, order.longitude, order.courier)
+            trackingMap = drawTrackingMap(order.latitude, order.longitude, order.courier)
         })
-        .catch(error => { trackerResult.textContent = error.message })
+        .catch(error => {
+            trackerLiveStatus.classList.remove('is-active')
+            trackerLiveStatus.classList.add('is-offline')
+            trackerLiveStatus.lastChild.textContent = 'Tracking service could not be reached'
+            trackerResult.textContent = error.message
+        })
 }
 
-trackerForm.addEventListener('submit', event => {
+if (trackerForm) trackerForm.addEventListener('submit', event => {
     event.preventDefault()
     if (trackingRefresh) clearInterval(trackingRefresh)
     const formData = new FormData(trackerForm)
@@ -751,6 +958,41 @@ trackerForm.addEventListener('submit', event => {
     loadTrackingOrder(query)
     trackingRefresh = setInterval(() => loadTrackingOrder(query), 10000)
 })
+
+const loadPurchaseTracking = order => {
+    const query = new URLSearchParams({ order: order.id, email: currentCustomer.email })
+    fetch(`api/track-order.php?${query}`)
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) throw new Error(data.error || 'Order tracking could not be loaded.')
+            const liveOrder = data.order
+            const trackingStatus = getTrackingStatus(liveOrder.status, liveOrder.courier)
+            purchaseTrackerResult.innerHTML = `
+                <strong>Order #${liveOrder.id}</strong>
+                <span>Status: ${getTrackingStatusLabel(trackingStatus)}</span>
+                ${liveOrder.courier ? `<span>Courier: ${liveOrder.courier.name} · Progress: ${liveOrder.courier.position.progress}% · ETA: ${liveOrder.courier.position.timeLeft}</span>` : ''}
+                ${renderTrackingTimeline(trackingStatus)}`
+            purchaseTrackerResult.insertAdjacentHTML('beforeend', liveOrder.courier
+                ? '<span class="tracker__map-note">Live courier position and route are updating automatically.</span>'
+                : '<span class="tracker__map-note">Courier simulation is unavailable; showing the delivery destination.</span>')
+            purchaseTrackingMapInstance = drawTrackingMap(liveOrder.latitude, liveOrder.longitude, liveOrder.courier, purchaseTrackingMap, purchaseTrackingMapInstance)
+        })
+        .catch(error => { purchaseTrackerResult.textContent = error.message })
+}
+
+const openPurchaseTracker = order => {
+    if (!currentCustomer) {
+        openAuthModal(true)
+        return
+    }
+    if (purchaseTrackingRefresh) clearInterval(purchaseTrackingRefresh)
+    purchasesOrders.hidden = true
+    purchasesTracker.hidden = false
+    purchasesSelected.innerHTML = `<strong>Order #${order.id}</strong><span>${order.items.map(item => `${item.name} x${item.quantity}`).join(' · ')}</span>`
+    purchaseTrackerResult.textContent = 'Loading live tracking...'
+    loadPurchaseTracking(order)
+    purchaseTrackingRefresh = setInterval(() => loadPurchaseTracking(order), 10000)
+}
 
 /*=============== DARK LIGHT THEME ===============*/ 
 const themeButton = document.getElementById('theme-button')

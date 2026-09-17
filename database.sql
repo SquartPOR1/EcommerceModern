@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS orders (
   total DECIMAL(10,2) NOT NULL,
   status ENUM('pending','paid','processing','shipped','cancelled') NOT NULL DEFAULT 'pending',
   courier_id VARCHAR(64) NULL,
+  cancel_reason VARCHAR(255) NULL,
+  cancelled_at TIMESTAMP NULL,
   payment_reference VARCHAR(190) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (customer_id) REFERENCES customers(id)

@@ -28,6 +28,12 @@ function db(): PDO
         if (!(int) $columnCheck->fetchColumn()) {
             $connection->exec('ALTER TABLE orders ADD COLUMN courier_id VARCHAR(64) NULL AFTER status');
         }
+        foreach (['cancel_reason' => 'VARCHAR(255) NULL AFTER courier_id', 'cancelled_at' => 'TIMESTAMP NULL AFTER cancel_reason'] as $column => $definition) {
+            $columnCheck->execute([DB_NAME, 'orders', $column]);
+            if (!(int) $columnCheck->fetchColumn()) {
+                $connection->exec("ALTER TABLE orders ADD COLUMN {$column} {$definition}");
+            }
+        }
     } catch (PDOException $exception) {
         jsonResponse(['error' => 'Database connection failed. Import database.sql and check api/config.php.'], 500);
     }
