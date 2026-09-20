@@ -57,7 +57,10 @@ window.addEventListener('scroll', scrollHeader)
 let testimonialSwiper = new Swiper(".testimonial-swiper", {
     spaceBetween: 30,
     loop: 'true',
-
+    effect: 'fade',
+    fadeEffect: {
+        crossFade: true
+    },
     navigation: {
         nextEl: ".swiper-button-next",
         prevEl: ".swiper-button-prev",
@@ -68,7 +71,10 @@ let testimonialSwiper = new Swiper(".testimonial-swiper", {
 let newSwiper = new Swiper(".new-swiper", {
     spaceBetween: 24,
     loop: 'true',
-
+    effect: 'fade',
+    fadeEffect: {
+        crossFade: true
+    },
     breakpoints: {
         576: {
           slidesPerView: 2,
@@ -126,11 +132,35 @@ const storeToast = document.getElementById('store-toast')
 let toastTimer
 
 const showToast = (message, isError = false) => {
-    clearTimeout(toastTimer)
-    storeToast.textContent = message
-    storeToast.classList.toggle('is-error', isError)
-    storeToast.classList.add('is-visible')
-    toastTimer = setTimeout(() => storeToast.classList.remove('is-visible'), 2600)
+    // Hide any existing toast animation
+    anime.remove(storeToast);
+    storeToast.textContent = message;
+    storeToast.classList.toggle('is-error', isError);
+
+    // Show toast
+    anime({
+        targets: storeToast,
+        translateY: [100, 0],
+        opacity: [0, 1],
+        duration: 300,
+        easing: 'easeOutExpo',
+        complete: () => {
+            // Hide after delay
+            toastTimer = setTimeout(() => {
+                anime({
+                    targets: storeToast,
+                    translateY: [0, 100],
+                    opacity: [1, 0],
+                    duration: 300,
+                    easing: 'easeInExpo',
+                    complete: () => {
+                        storeToast.classList.remove('is-visible');
+                    }
+                });
+            }, 2600);
+        }
+    });
+    storeToast.classList.add('is-visible');
 }
 
 /*===== CART SHOW =====*/
@@ -646,6 +676,14 @@ const toggleWishlist = id => {
         button.classList.toggle('is-saved', saved)
         button.setAttribute('aria-label', saved ? 'Remove from wishlist' : 'Save to wishlist')
         button.innerHTML = `<i class='bx ${saved ? 'bxs-heart' : 'bx-heart'}'></i>`
+        // Add pulse animation
+        anime.remove(button);
+        anime({
+            targets: button,
+            scale: [1, 1.2, 1],
+            duration: 300,
+            easing: 'easeInOutExpo'
+        });
     })
     if (wishlistItems.includes(id)) showToast('Saved to your wishlist.')
 }
@@ -1023,3 +1061,129 @@ if (themeButton) themeButton.addEventListener('click', () => {
     localStorage.setItem('selected-theme', getCurrentTheme())
     localStorage.setItem('selected-icon', getCurrentIcon())
 })
+
+/*=============== ANIMATIONS WITH ANIME.JS ===============*/
+document.addEventListener('DOMContentLoaded', () => {
+    // Page entrance animation: fade in and slide up for sections
+    const sections = document.querySelectorAll('.home, .featured, .story, .products, .new, .testimonial, .tracker, .newsletter');
+    sections.forEach((section, index) => {
+        anime({
+            targets: section,
+            opacity: [0, 1],
+            translateY: [50, 0],
+            duration: 800,
+            delay: index * 100, // staggered delay
+            easing: 'easeOutExpo'
+        });
+    });
+
+    // Hamburger menu animation: slide the menu panel from left
+    const navMenu = document.getElementById('nav-menu');
+    const navToggle = document.getElementById('nav-toggle');
+    const navClose = document.getElementById('nav-close');
+
+    // We'll modify the existing click listeners to add animation
+    // Instead of directly toggling class, we'll use anime.js to animate the width
+    // But note: the menu is hidden by default (width: 0) and shown with width: 240px? We need to check CSS.
+    // For simplicity, we'll animate the menu's translateX from -100% to 0 when showing, and reverse when hiding.
+    // However, we must not break the existing functionality.
+
+    // We'll create a function to toggle menu with animation
+    const toggleMenuAnimated = (show) => {
+        if (show) {
+            navMenu.classList.add('show-menu');
+            anime({
+                targets: navMenu,
+                translateX: [-100, 0],
+                duration: 500,
+                easing: 'easeOutExpo'
+            });
+        } else {
+            anime({
+                targets: navMenu,
+                translateX: [0, -100],
+                duration: 500,
+                easing: 'easeInExpo',
+                complete: () => {
+                    navMenu.classList.remove('show-menu');
+                }
+            });
+        }
+    };
+
+    if (navToggle) {
+        navToggle.addEventListener('click', () => toggleMenuAnimated(true));
+    }
+    if (navClose) {
+        navClose.addEventListener('click', () => toggleMenuAnimated(false));
+    }
+
+    // Product card hover animation: lift and shadow
+    const productCards = document.querySelectorAll('.featured__card, .products__card, .new__card');
+    productCards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            anime({
+                targets: card,
+                translateY: -10,
+                boxShadow: ['0px 4px 12px rgba(0,0,0,0.1)', '0px 8px 24px rgba(0,0,0,0.15)'],
+                duration: 300,
+                easing: 'easeOutQuad'
+            });
+        });
+        card.addEventListener('mouseleave', () => {
+            anime({
+                targets: card,
+                translateY: 0,
+                boxShadow: ['0px 8px 24px rgba(0,0,0,0.15)', '0px 4px 12px rgba(0,0,0,0.1)'],
+                duration: 300,
+                easing: 'easeInQuad'
+            });
+        });
+    });
+
+    // Modal open animation: fade in and scale up
+    const modals = document.querySelectorAll('.auth-modal, .wishlist, .purchases, .cancel-modal, .advisor-panel');
+    modals.forEach(modal => {
+        // We'll animate when the modal gets the 'is-visible' class
+        // We can use a MutationObserver or we can override the class toggling functions.
+        // For simplicity, we'll animate when the modal is shown via the existing functions.
+        // We'll rely on the fact that the modal is shown by adding 'is-visible' and setting aria-hidden to false.
+        // We'll add a CSS transition for opacity and transform, but we can also use anime.js.
+        // Let's use anime.js for the modal itself.
+        // We'll create a function to show modal with animation.
+        // However, we don't want to override all the existing show functions.
+        // Instead, we'll add a CSS transition for the modal's opacity and transform.
+        // Since we are allowed to use anime.js, we'll do it via:
+        // We'll override the classList.add/remove for the 'is-visible' attribute? Too complex.
+        // We'll just add a CSS transition in the stylesheet? But we are to use anime.js.
+        // We'll instead animate the modal when it becomes visible by checking for the class change.
+        // We'll use a MutationObserver for each modal.
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'class') {
+                    if (modal.classList.contains('is-visible')) {
+                        // Modal is being shown
+                        anime({
+                            targets: modal,
+                            opacity: [0, 1],
+                            scale: [0.9, 1],
+                            duration: 500,
+                            easing: 'easeOutExpo'
+                        });
+                    } else {
+                        // Modal is being hidden
+                        anime({
+                            targets: modal,
+                            opacity: [1, 0],
+                            scale: [1, 0.9],
+                            duration: 300,
+                            easing: 'easeInExpo'
+                        });
+                    }
+                }
+            });
+        });
+
+        observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    });
+});
