@@ -26,12 +26,9 @@ Always open the StoreFront through `http://localhost/responsive-watches-website-
 
 Courier simulation
 
-This project can optionally connect to https://github.com/fudaylcavus/courier-simulation-api for simulated street-level courier tracking.
+The courier API source is included in `LiveCourier/courier-simulation-api`, so it is downloaded with this project. Install Node.js 18 or newer, then open a terminal in that folder and run `npm install` followed by `npm start`. The API listens on `http://localhost:3000`.
 
-1. Clone the courier API beside this project and run `npm install`.
-2. No API key is required. The local service uses Nominatim for geocoding and OSRM for free street routing.
-3. Start it with `npm start` so it listens on `http://localhost:3000`.
-4. Open this store through XAMPP at `http://localhost/responsive-watches-website-main/`.
+No API key is required. The local service uses Nominatim for geocoding and OSRM for free street routing. Run the store through XAMPP at `http://localhost/responsive-watches-website-main/` while the API is running.
 
 New orders automatically create a courier simulation when the service is available. The existing order tracker polls the courier position, route, progress, and ETA every 10 seconds. If the service is offline, checkout still succeeds and the tracker shows the confirmed delivery destination instead.
 
